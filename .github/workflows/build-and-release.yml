@@ -18,7 +18,7 @@ jobs:
       run: choco install windows-sdk-10.0
 
     - name: Install CUDA
-      run: choco install cuda --version=12.4
+      run: choco install cuda
 
     - name: Install cuDNN
       run: |
