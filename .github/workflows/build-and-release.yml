@@ -4,12 +4,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # Install dependencies job
+  install-dependencies:
     runs-on: windows-latest
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    - name: Cache Dependencies and Tools
+      uses: actions/cache@v3
+      with:
+        path: |
+          C:\Program Files\CMake
+          C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
+          C:\tools\cuda
+        key: ${{ runner.os }}-dependencies-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-dependencies-
 
     - name: Install Visual Studio 2019
       uses: microsoft/setup-msbuild@v1
@@ -20,80 +33,78 @@ jobs:
     - name: Install CUDA
       run: |
         choco install cuda
-        refreshenv
+        $env:Path += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\libnvvp"
+        [Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::Process)
 
     - name: Install cuDNN
       run: |
         curl -L -o cudnn.zip "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.5.1.17_cuda12-archive.zip"
         unzip cudnn.zip -d C:\tools\cuda
 
-    - name: Set Up Project Structure
-      run: |
-        if (-Not (Test-Path -Path "sunone_aimbot_cpp/modules")) {
-          mkdir sunone_aimbot_cpp/modules
-        }
-      shell: pwsh
+    - name: Verify CUDA
+      run: nvcc --version
 
-    - name: Install CMake
-      run: choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+  # Build OpenCV job
+  build-opencv:
+    runs-on: windows-latest
+    needs: install-dependencies
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
     - name: Build OpenCV with CUDA Support
       run: |
         git clone https://github.com/opencv/opencv.git --branch 4.10.0 --depth 1
         git clone https://github.com/opencv/opencv_contrib.git --branch 4.10.0 --depth 1
-        mkdir sunone_aimbot_cpp\modules\opencv\build
-        cd sunone_aimbot_cpp\modules\opencv\build
-        cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=install -D OPENCV_EXTRA_MODULES_PATH=..\opencv_contrib\modules -D WITH_CUDA=ON -D WITH_CUBLAS=ON -D ENABLE_FAST_MATH=ON -D CUDA_FAST_M[...]
+        mkdir sunone_aimbot_cpp/modules/opencv/build
+        cd sunone_aimbot_cpp/modules/opencv/build
+        cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=install -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules -D WITH_CUDA=ON -D WITH_CUBLAS=ON -D ENABLE_FAST_MATH=ON -D CUDA_FAST_MATH=ON ..
         cmake --build . --target INSTALL --config Release
 
-    - name: Download Required Libraries
+  # Build Boost job
+  build-boost:
+    runs-on: windows-latest
+    needs: install-dependencies
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Download and Extract Boost
       run: |
         curl -L -o boost.zip "https://disk.yandex.ru/d/O8XkcKeQ3vNDFg"
-        curl -L -o tensorrt.zip "https://disk.yandex.ru/d/S16C9oDSuF1_EQ"
-        unzip boost.zip -d sunone_aimbot_cpp\modules
-        unzip tensorrt.zip -d sunone_aimbot_cpp\modules
+        unzip boost.zip -d sunone_aimbot_cpp/modules
 
     - name: Compile Boost Libraries
       run: |
-        cd sunone_aimbot_cpp\modules\boost_1_82_0
+        cd sunone_aimbot_cpp/modules/boost_1_82_0
         bootstrap.bat vc142
         b2.exe --build-type=complete link=static runtime-link=static threading=multi variant=release
 
-    - name: Verify Folder Structure
-      run: |
-        tree sunone_aimbot_cpp
-
-    - name: Configure Project Settings
-      run: |
-        nuget install Microsoft.Windows.CppWinRT
-
-    - name: Verify CUDA Integration
-      run: |
-        msbuild /t:BuildCustomizations /p:CUDA=12.4
+  # Build the project job
+  build-project:
+    runs-on: windows-latest
+    needs: [build-opencv, build-boost]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
     - name: Build the Project
       run: msbuild sunone_aimbot_cpp.sln /p:Configuration=Release
 
-    - name: Prepare release assets
-      run: mkdir -p release && cp sunone_aimbot_cpp\Release\ai.exe release/
+    - name: Prepare Release Assets
+      run: mkdir -p release && cp sunone_aimbot_cpp/Release/ai.exe release/
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+  # Release job
+  release:
+    runs-on: windows-latest
+    needs: build-project
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v1
+      with:
+        files: release/ai.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: false
-
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: release/ai.exe
-        asset_name: ai.exe
-        asset_content_type: application/octet-stream
