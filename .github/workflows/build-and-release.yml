@@ -22,7 +22,7 @@ jobs:
 
     - name: Install cuDNN
       run: |
-        curl -L -o cudnn.zip "https://developer.download.nvidia.com/compute/redist/cudnn/v8.3.2/cudnn-11.4-windows-x64-v8.3.2.44.zip"
+        curl -L -o cudnn.zip "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.5.1.17_cuda12-archive.zip"
         unzip cudnn.zip -d C:\tools\cuda
 
     - name: Set Up Project Structure
