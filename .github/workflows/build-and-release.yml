@@ -20,6 +20,7 @@ jobs:
           C:\Program Files\CMake
           C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA
           C:\tools\cuda
+          sunone_aimbot_cpp/modules
         key: ${{ runner.os }}-dependencies-${{ hashFiles('**/CMakeLists.txt') }}
         restore-keys: |
           ${{ runner.os }}-dependencies-
@@ -33,16 +34,25 @@ jobs:
     - name: Install CUDA
       run: |
         choco install cuda
-        $env:Path += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\libnvvp"
-        [Environment]::SetEnvironmentVariable("Path", $env:Path, [System.EnvironmentVariableTarget]::Process)
+        echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\bin"
+        echo "::add-path::C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6\libnvvp"
 
     - name: Install cuDNN
       run: |
         curl -L -o cudnn.zip "https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.5.1.17_cuda12-archive.zip"
         unzip cudnn.zip -d C:\tools\cuda
 
-    - name: Verify CUDA
+    - name: Verify CUDA Installation
       run: nvcc --version
+
+    - name: Debug PATH
+      run: echo $env:Path
+      shell: pwsh
+
+    - name: Check Disk Space
+      run: |
+        echo "Checking available disk space..."
+        df -h
 
   # Build OpenCV job
   build-opencv:
@@ -51,6 +61,14 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+
+    - name: Cache OpenCV Build
+      uses: actions/cache@v3
+      with:
+        path: sunone_aimbot_cpp/modules/opencv/build
+        key: ${{ runner.os }}-opencv-${{ hashFiles('**/CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-opencv-
 
     - name: Build OpenCV with CUDA Support
       run: |
@@ -68,6 +86,14 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
+
+    - name: Cache Boost Build
+      uses: actions/cache@v3
+      with:
+        path: sunone_aimbot_cpp/modules/boost_1_82_0
+        key: ${{ runner.os }}-boost-${{ hashFiles('**/boost.zip') }}
+        restore-keys: |
+          ${{ runner.os }}-boost-
 
     - name: Download and Extract Boost
       run: |
@@ -89,10 +115,18 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Build the Project
-      run: msbuild sunone_aimbot_cpp.sln /p:Configuration=Release
+      run: msbuild sunone_aimbot_cpp.sln /p:Configuration=Release /verbosity:detailed
 
     - name: Prepare Release Assets
       run: mkdir -p release && cp sunone_aimbot_cpp/Release/ai.exe release/
+
+    - name: Check Release File
+      run: |
+        if exist release/ai.exe (
+          echo "File exists."
+        ) else (
+          echo "File not found!" && exit 1
+        )
 
   # Release job
   release:
