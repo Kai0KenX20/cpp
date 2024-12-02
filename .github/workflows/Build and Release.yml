@@ -15,13 +15,13 @@ jobs:
     - name: Restore NuGet Packages
       run: |
         echo "Restoring NuGet packages..."
-        nuget restore ${{ github.workspace }}/sunone_aimbot_cpp.sln
+        msbuild ${{ github.workspace }}/sunone_aimbot_cpp.sln /t:Restore /verbosity:minimal
       shell: powershell
 
     - name: Build the Project
       run: |
-        echo "Building the project using prebuilt OpenCV and Boost..."
-        msbuild ${{ github.workspace }}/sunone_aimbot_cpp.sln /p:Configuration=Release /verbosity:minimal
+        echo "Building the project with Visual Studio 2022 Build Tools..."
+        msbuild ${{ github.workspace }}/sunone_aimbot_cpp.sln /p:PlatformToolset=v143 /p:Configuration=Release /verbosity:minimal
       shell: powershell
 
     - name: Prepare Release Assets
