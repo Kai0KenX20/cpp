@@ -1,0 +1,59 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+    # Checkout the repository
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    # Verify CUDA installation
+    - name: Verify CUDA Installation
+      run: |
+        echo "Verifying CUDA installation..."
+        nvcc --version
+
+    # Verify PATH environment variables
+    - name: Verify PATH
+      run: |
+        echo "Current PATH environment:"
+        echo $env:Path
+      shell: pwsh
+
+    # Build the project
+    - name: Build the Project
+      run: |
+        echo "Building the project using prebuilt OpenCV and Boost..."
+        cd D:/runner_work/sunone_aimbot_cpp
+        msbuild sunone_aimbot_cpp.sln /p:Configuration=Release /verbosity:minimal
+
+    # Prepare release assets
+    - name: Prepare Release Assets
+      run: |
+        echo "Preparing release assets..."
+        mkdir -p D:/release
+        cp D:/runner_work/sunone_aimbot_cpp/Release/ai.exe D:/release
+
+    # Verify release file exists
+    - name: Verify Release File
+      run: |
+        echo "Checking release file existence..."
+        if exist D:/release/ai.exe (
+          echo "Release file found: ai.exe"
+        ) else (
+          echo "Release file not found!" && exit 1
+        )
+
+    # Create GitHub release and upload assets
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: D:/release/ai.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
