@@ -24,36 +24,46 @@ jobs:
       run: |
         echo "Current PATH environment:"
         echo $env:Path
-      shell: pwsh
+      shell: powershell
 
-    # Build the project
+    # Print the current working directory (for debugging)
+    - name: Print Working Directory
+      run: |
+        echo "Current working directory:"
+        pwd
+      shell: powershell
+
+    # Build the project using dynamically resolved workspace path
     - name: Build the Project
       run: |
         echo "Building the project using prebuilt OpenCV and Boost..."
-        cd D:/runner_work/sunone_aimbot_cpp
+        cd ${{ github.workspace }}
         msbuild sunone_aimbot_cpp.sln /p:Configuration=Release /verbosity:minimal
+      shell: powershell
 
     # Prepare release assets
     - name: Prepare Release Assets
       run: |
         echo "Preparing release assets..."
-        mkdir -p D:/release
-        cp D:/runner_work/sunone_aimbot_cpp/Release/ai.exe D:/release
+        mkdir -p ${{ github.workspace }}/release
+        cp ${{ github.workspace }}/Release/ai.exe ${{ github.workspace }}/release
+      shell: powershell
 
     # Verify release file exists
     - name: Verify Release File
       run: |
         echo "Checking release file existence..."
-        if exist D:/release/ai.exe (
+        if (Test-Path "${{ github.workspace }}/release/ai.exe") {
           echo "Release file found: ai.exe"
-        ) else (
-          echo "Release file not found!" && exit 1
-        )
+        } else {
+          Write-Error "Release file not found!"
+        }
+      shell: powershell
 
     # Create GitHub release and upload assets
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: D:/release/ai.exe
+        files: ${{ github.workspace }}/release/ai.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
