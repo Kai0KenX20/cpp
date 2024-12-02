@@ -12,10 +12,23 @@ jobs:
       with:
         fetch-depth: 1
 
+    - name: Install Missing NuGet Package
+      run: |
+        echo "Installing missing NuGet package..."
+        nuget install Microsoft.Windows.CppWinRT -Version 2.0.240405.15 -OutputDirectory ${{ github.workspace }}/packages
+      shell: powershell
+
     - name: Restore NuGet Packages
       run: |
-        echo "Restoring NuGet packages..."
-        msbuild ${{ github.workspace }}/sunone_aimbot_cpp.sln /t:Restore /verbosity:minimal
+        nuget restore ${{ github.workspace }}/sunone_aimbot_cpp.sln
+      shell: powershell
+
+    - name: Debug Environment
+      run: |
+        echo "Listing packages directory..."
+        Get-ChildItem -Recurse ${{ github.workspace }}/packages
+        echo "Inspecting project file..."
+        Get-Content ${{ github.workspace }}/sunone_aimbot_cpp.vcxproj
       shell: powershell
 
     - name: Build the Project
