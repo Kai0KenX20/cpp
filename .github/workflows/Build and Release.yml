@@ -10,42 +10,41 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
+        ref: main
         fetch-depth: 1
 
-    - name: Install Missing NuGet Package
+    - name: Debug Repository Structure
       run: |
-        echo "Installing missing NuGet package..."
-        nuget install Microsoft.Windows.CppWinRT -Version 2.0.240405.15 -OutputDirectory ${{ github.workspace }}/packages
+        echo "Listing repository contents..."
+        Get-ChildItem -Recurse ${{ github.workspace }}
       shell: powershell
 
     - name: Restore NuGet Packages
       run: |
-        nuget restore ${{ github.workspace }}/sunone_aimbot_cpp.sln
+        nuget restore "${{ github.workspace }}\sunone_aimbot_cpp.sln"
       shell: powershell
 
-    - name: Debug Environment
+    - name: Install Missing NuGet Package
       run: |
-        echo "Listing packages directory..."
-        Get-ChildItem -Recurse ${{ github.workspace }}/packages
-        echo "Inspecting project file..."
-        Get-Content ${{ github.workspace }}/sunone_aimbot_cpp.vcxproj
+        echo "Installing missing NuGet package..."
+        nuget install Microsoft.Windows.CppWinRT -Version 2.0.240405.15 -OutputDirectory ${{ github.workspace }}\packages
       shell: powershell
 
     - name: Build the Project
       run: |
         echo "Building the project with Visual Studio 2022 Build Tools..."
-        msbuild ${{ github.workspace }}/sunone_aimbot_cpp.sln /p:PlatformToolset=v143 /p:Configuration=Release /verbosity:minimal
+        msbuild "${{ github.workspace }}\sunone_aimbot_cpp.sln" /p:PlatformToolset=v143 /p:Configuration=Release /verbosity:minimal
       shell: powershell
 
     - name: Prepare Release Assets
       run: |
-        mkdir -p ${{ github.workspace }}/release
-        cp ${{ github.workspace }}/Release/ai.exe ${{ github.workspace }}/release
+        mkdir -p ${{ github.workspace }}\release
+        cp ${{ github.workspace }}\Release\ai.exe ${{ github.workspace }}\release
       shell: powershell
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: ${{ github.workspace }}/release/ai.exe
+        files: ${{ github.workspace }}\release\ai.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
