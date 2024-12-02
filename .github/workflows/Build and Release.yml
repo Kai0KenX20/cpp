@@ -7,60 +7,29 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
-    # Checkout the repository
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
         fetch-depth: 1
 
-    # Verify CUDA installation
-    - name: Verify CUDA Installation
+    - name: Restore NuGet Packages
       run: |
-        echo "Verifying CUDA installation..."
-        nvcc --version
-
-    # Verify PATH environment variables
-    - name: Verify PATH
-      run: |
-        echo "Current PATH environment:"
-        echo $env:Path
+        echo "Restoring NuGet packages..."
+        nuget restore ${{ github.workspace }}/sunone_aimbot_cpp.sln
       shell: powershell
 
-    # Print the current working directory (for debugging)
-    - name: Print Working Directory
-      run: |
-        echo "Current working directory:"
-        pwd
-      shell: powershell
-
-    # Build the project using dynamically resolved workspace path
     - name: Build the Project
       run: |
         echo "Building the project using prebuilt OpenCV and Boost..."
-        cd ${{ github.workspace }}
-        msbuild sunone_aimbot_cpp.sln /p:Configuration=Release /verbosity:minimal
+        msbuild ${{ github.workspace }}/sunone_aimbot_cpp.sln /p:Configuration=Release /verbosity:minimal
       shell: powershell
 
-    # Prepare release assets
     - name: Prepare Release Assets
       run: |
-        echo "Preparing release assets..."
         mkdir -p ${{ github.workspace }}/release
         cp ${{ github.workspace }}/Release/ai.exe ${{ github.workspace }}/release
       shell: powershell
 
-    # Verify release file exists
-    - name: Verify Release File
-      run: |
-        echo "Checking release file existence..."
-        if (Test-Path "${{ github.workspace }}/release/ai.exe") {
-          echo "Release file found: ai.exe"
-        } else {
-          Write-Error "Release file not found!"
-        }
-      shell: powershell
-
-    # Create GitHub release and upload assets
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
